@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 instance with cloudformation init scripts, displays various features with AWS::CloudFormation::Init and UserData
+
+Parameters:
+  EC2Key:
+    Type: String
+    Default: staging-glb
+
+Resources:
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-init.html#aws-resource-init-services
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+          files:
+            /var/www/html/index.html:
+              content: "<html><body>Hello World</body></html>"
+              mode: '000644'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              httpd:
+                enabled: 'true'
+                ensureRunning: 'true'
+    Properties:
+      KeyName: !Ref EC2Key
+      InstanceType: t2.micro
+      SubnetId: !ImportValue AWSSampleVpcSubnet1
+      SecurityGroupIds:
+        - !ImportValue AWSSampleAppSecurityGroup
+      ImageId: ami-d5ea86b5
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash -x
+            yum update -y aws-cfn-bootstrap
+            /opt/aws/bin/cfn-init --stack ${StackName} --resource ${Resource} --region ${Region};
+            export RDS_HOST=${RDSAddress};
+            echo "<html><body>Hello World<br/>I was generated from user-data and cloud-init, can be ssh-ed with <b>${KeyPair}</b> and I can talk to RDS(Postgres) at <b>$RDS_HOST<b></body></html>" > /var/www/html/index.html;
+            /opt/aws/bin/cfn-signal --exit-code $? --stack ${StackName} --resource ${Resource} --region ${Region};
+          -
+            RDSAddress: !ImportValue AWSSampleRDSAddress
+            KeyPair: !Ref EC2Key
+            StackName: !Ref AWS::StackName
+            Resource: Ec2Instance
+            Region: !Ref AWS::Region
+
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+Outputs:
+  PublicURL:
+    Description: Public endpoint
+    Value: !Join ["", ["http://", !GetAtt [Ec2Instance, PublicIp]]]

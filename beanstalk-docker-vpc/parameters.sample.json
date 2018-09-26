@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "pgdb"
+  },
+  {
+    "ParameterKey": "DBMasterUser",
+    "ParameterValue": "masterblaster"
+  },
+  {
+    "ParameterKey": "DBMasterPassword",
+    "ParameterValue": "MasterBlaster"
+  }
+]

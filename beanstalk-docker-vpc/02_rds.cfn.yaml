@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: An Postgres RDS instance
+
+Parameters:
+  DBName:
+    Type: String
+  DBMasterUser:
+    Type: String
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+  # Subnet for DB
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available for the RDS DB Instance
+      SubnetIds:
+      - !ImportValue AWSSampleVpcPrivateSubnet1
+      - !ImportValue AWSSampleVpcPrivateSubnet2
+
+  # RDS
+  RDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Ref DBName
+      AllocatedStorage: "5"
+      DBInstanceClass: db.t2.micro
+      Engine: postgres
+      EngineVersion: 9.6.9
+      MasterUsername: !Ref DBMasterUser
+      MasterUserPassword: !Ref DBMasterPassword
+      VPCSecurityGroups:
+      - !ImportValue AWSSampleDBSecurityGroup
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      Tags:
+      - Key: Owner
+        Value: AWSSample
+
+Outputs:
+  RDS:
+    Description: Posgres RDS
+    Value: !Ref RDS
+  RDSAddress:
+    Description: Posgres RDS
+    Value: !GetAtt [RDS, Endpoint.Address]
+    Export:
+      Name: AWSSampleRDSAddress
+  RDSPort:
+    Description: Posgres RDS
+    Value: !GetAtt [RDS, Endpoint.Port]
+    Export:
+      Name: AWSSampleRDSPort
+

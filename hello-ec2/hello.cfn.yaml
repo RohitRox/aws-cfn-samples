@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Deploys a basic httpd hello world AMI in an EC2 instance, create and attach a security group for the instance
+
+Mappings:
+  Infra:
+    Vpcs:
+      Main: vpc-ab14eccc
+    Subnets:
+      Public:
+      - subnet-8bf35dd0
+      - subnet-ecf16e8b
+
+Resources:
+  # Security Group
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: webapp-hello-security-group
+      GroupDescription: Web App Security Group, HTTP traffic in, all traffic out, SSH enabled
+      VpcId: !FindInMap [Infra, Vpcs, Main]
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 80
+        FromPort: 80
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 22
+        FromPort: 22
+
+  # App Instance
+  App:
+    Type: AWS::EC2::Instance
+    Properties:
+      # Hello Aws Community AMI
+      ImageId: ami-8b5bb6e8
+      InstanceType: t2.micro
+      KeyName: ec2-key-name
+      SubnetId: !Select [ 0, !FindInMap [Infra, Subnets, Public] ]
+      SecurityGroupIds:
+      - !Ref AppSecurityGroup
+      Tags:
+      - Key: Environment
+        Value: test
+      - Key: Role
+        Value: web
+
+Outputs:
+  App:
+    Description: App Instance
+    Value: !Ref App
+  AppUrl:
+    Description: App Endpoint
+    Value: !GetAtt App.PublicDnsName

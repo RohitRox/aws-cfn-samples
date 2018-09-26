@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sample template to setup up for Docker based Beanstalk app; Create a Beanstalk application with sample app, a RDS instance, also injects RDS credentials into beanstalk environment
+
+Parameters:
+  EC2Key:
+    Type: String
+    Default: staging-glb
+  DBName:
+    Type: String
+  DBMasterUser:
+    Type: String
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+  # Beanstalk
+  BeanstalkApplication:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName: AWSSampleBeanstalkApplication
+      Description: AWS Elastic Beanstalk Docker Sample Application
+
+  BeanstalkApplicationVersion:
+    Type: AWS::ElasticBeanstalk::ApplicationVersion
+    Properties:
+      Description: Initial Version
+      ApplicationName: !Ref BeanstalkApplication
+      SourceBundle:
+        S3Bucket: !Join ['-', ['elasticbeanstalk-samples', !Ref "AWS::Region"]]
+        S3Key: docker-sample.zip
+
+  BeanstalkEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      EnvironmentName: beta
+      ApplicationName: !Ref BeanstalkApplication
+      TemplateName: !Ref BeanstalkConfigurationTemplate
+      VersionLabel: !Ref BeanstalkApplicationVersion
+
+  BeanstalkConfigurationTemplate:
+    Type: AWS::ElasticBeanstalk::ConfigurationTemplate
+    Properties:
+      ApplicationName: !Ref BeanstalkApplication
+      SolutionStackName: 64bit Amazon Linux 2018.03 v2.12.2 running Docker 18.03.1-ce
+      OptionSettings:
+      # Load Balancer and Auto Scale
+      - Namespace: aws:elasticbeanstalk:environment
+        OptionName: EnvironmentType
+        Value: LoadBalanced
+      - Namespace: aws:autoscaling:asg
+        OptionName: MinSize
+        Value: '1'
+      - Namespace: aws:autoscaling:asg
+        OptionName: MaxSize
+        Value: '1'
+
+      # Launch Configuration
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: EC2KeyName
+        Value: !Ref EC2Key
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: IamInstanceProfile
+        Value: aws-elasticbeanstalk-ec2-role
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SecurityGroups
+        Value: !Join [',', [!ImportValue AWSSampleAppSecurityGroup]]
+
+      # VPC
+      - Namespace: aws:ec2:vpc
+        OptionName: VPCId
+        Value: !ImportValue AWSSampleVpc
+      - Namespace: aws:ec2:vpc
+        OptionName: Subnets
+        Value: !Join [',', [ !ImportValue AWSSampleVpcSubnet1, !ImportValue AWSSampleVpcSubnet2]]
+      - Namespace: aws:ec2:vpc
+        OptionName: ELBSubnets
+        Value: !Join [',', [ !ImportValue AWSSampleVpcSubnet1, !ImportValue AWSSampleVpcSubnet2]]
+
+      # ENV variables
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RAILS_ENV
+        Value: staging
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RDS_DB_HOST
+        Value: !ImportValue AWSSampleRDSAddress
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RDS_DB_NAME
+        Value: !Ref DBName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RDS_DB_USERNAME
+        Value: !Ref DBMasterUser
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RDS_DB_PASSWORD
+        Value: !Ref DBMasterPassword
+
+      # Health Checks
+      - Namespace: aws:elasticbeanstalk:healthreporting:system
+        OptionName: SystemType
+        Value: "enhanced"
+
+      #  HTTPS Listeners
+      - Namespace: aws:elb:listener:443
+        OptionName: InstancePort
+        Value: '80'
+      - Namespace: aws:elb:listener:443
+        OptionName: InstanceProtocol
+        Value: HTTP
+      - Namespace: aws:elb:listener:443
+        OptionName: ListenerEnabled
+        Value: 'true'
+      - Namespace: aws:elb:listener:443
+        OptionName: ListenerProtocol
+        Value: HTTPS
+      - Namespace: aws:elb:listener:443
+        OptionName: SSLCertificateId
+        Value: arn:aws:acm:us-west-1:316757257260:certificate/dc2c1676-401f-4eb3-89af-d0ce4f3602c7
+Outputs:
+  BeanstalkApplication:
+    Description: Beanstalk Application
+    Value: !Ref BeanstalkApplication
+  BeanstalkApplicationEnvironment:
+    Description: Beanstalk Application Environment
+    Value: !Ref BeanstalkEnvironment
+  BeanstalkApplicationEnvironmentUrl:
+    Description: Beanstalk Application Environment Url
+    Value: !GetAtt BeanstalkEnvironment.EndpointURL
+
+

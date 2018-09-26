@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Security Groups
+
+Resources:
+  # Security Groups
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: aws-sample-web-security-group
+      GroupDescription: Web App Security Group
+      VpcId: !ImportValue AWSSampleVpc
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 80
+        FromPort: 80
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 22
+        FromPort: 22
+      Tags:
+      - Key: Owner
+        Value: AWSSample
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: aws-sample-db-security-group
+      GroupDescription: DB Group
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: !Ref AppSecurityGroup
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+      VpcId: !ImportValue AWSSampleVpc
+      Tags:
+      - Key: Owner
+        Value: AWSSample
+
+Outputs:
+  AppSecurityGroup:
+    Description: App Security Group
+    Value: !Ref AppSecurityGroup
+    Export:
+      Name: AWSSampleAppSecurityGroup
+  DBSecurityGroup:
+    Description: DB Security Group
+    Value: !Ref DBSecurityGroup
+    Export:
+      Name: AWSSampleDBSecurityGroup
+  AppSecurityGroupId:
+    Description: App Security Group
+    Value: !GetAtt [AppSecurityGroup, GroupId]
+    Export:
+      Name: AWSSampleAppSecurityGroupId
+  DBSecurityGroupId:
+    Description: DB Security Group
+    Value: !GetAtt [DBSecurityGroup, GroupId]
+    Export:
+      Name: AWSSampleDBSecurityGroupId
